@@ -4,27 +4,85 @@ from aiogram.filters import Command
 import asyncio
 import json
 import re
-from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance
+from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance 
 
-API_TOKEN = '8595692863:AAH2QENhXN6Cjdkmt-D0sneu3h6eJ6bWD5o'  # Замени на токен от @BotFather
+API_TOKEN = '8595692863:AAH2QENhXN6Cjdkmt-D0sneu3h6eJ6bWD5o'
 
 bot = Bot(token=API_TOKEN)
-dp = Dispatcher()
 
-# Загружаем JSON файлы
-with open('faq.json', 'r', encoding='utf-8') as f:
-    faq_data = json.load(f)
-    faq_dict = faq_data["faq_dict"]
-    faq_details = faq_data["faq_details"]
+try:
+    with open('faq.json', 'r', encoding='utf-8') as f:
+        faq_data = json.load(f)
+        faq_dict = faq_data["faq_dict"]
+        faq_details = faq_data["faq_details"]
+    print(f"Загружено {len(faq_dict)} FAQ записей.")
+except Exception as e:
+    print(f"Ошибка загрузки faq.json: {e}")
+    faq_dict = {}
+    faq_details = {}
 
-with open('setting.json', 'r', encoding='utf-8') as f:
-    setting_guides = json.load(f)
+try:
+    with open('setting.json', 'r', encoding='utf-8') as f:
+        setting_guides = json.load(f)
+    print(f"Загружено {len(setting_guides)} настроек.")
+except Exception as e:
+    print(f"Ошибка загрузки setting.json: {e}")
+    setting_guides = {}
 
-with open('optimiz.json', 'r', encoding='utf-8') as f:
-    optimiz_guides = json.load(f)
+try:
+    with open('optimiz.json', 'r', encoding='utf-8') as f:
+        optimiz_guides = json.load(f)
+    print(f"Загружено {len(optimiz_guides)} оптимизаций.")
+except Exception as e:
+    print(f"Ошибка загрузки optimiz.json: {e}")
+    optimiz_guides = {}
 
-with open('clear.json', 'r', encoding='utf-8') as f:
-    clear_guides = json.load(f)
+try:
+    with open('clear.json', 'r', encoding='utf-8') as f:
+        clear_guides = json.load(f)
+    print(f"Загружено {len(clear_guides)} очисток.")
+except Exception as e:
+    print(f"Ошибка загрузки clear.json: {e}")
+    clear_guides = {}
+
+# --- НОВОЕ: Загружаем error_solutions.json с отладкой ---
+try:
+    with open('error_solutions.json', 'r', encoding='utf-8') as f:
+        error_solutions_dict = json.load(f)
+    print(f"Загружено {len(error_solutions_dict)} решений ошибок BSOD.")
+    # Проверим наличие конкретных ключей
+    if "0x00000069" in error_solutions_dict:
+        print("Ключ '0x00000069' найден в error_solutions.json")
+    else:
+        print("Ключ '0x00000069' НЕ НАЙДЕН в error_solutions.json")
+    if "0x00000001" in error_solutions_dict:
+        print("Ключ '0x00000001' найден в error_solutions.json")
+    else:
+        print("Ключ '0x00000001' НЕ НАЙДЕН в error_solutions.json")
+except json.JSONDecodeError as je:
+    print(f"Ошибка синтаксиса JSON в error_solutions.json: {je}")
+    error_solutions_dict = {}
+except FileNotFoundError:
+    print("Файл error_solutions.json не найден в папке с main.py!")
+    error_solutions_dict = {}
+except Exception as e:
+    print(f"Ошибка загрузки error_solutions.json: {e}")
+    error_solutions_dict = {}
+
+# --- НОВОЕ: Загружаем error_codes_names.json ---
+try:
+    with open('error_codes_names.json', 'r', encoding='utf-8') as f:
+        error_codes_names_dict = json.load(f)
+    print(f"Загружено {len(error_codes_names_dict)} названий ошибок BSOD.")
+except json.JSONDecodeError as je:
+    print(f"Ошибка синтаксиса JSON в error_codes_names.json: {je}")
+    error_codes_names_dict = {}
+except FileNotFoundError:
+    print("Файл error_codes_names.json не найден в папке с main.py!")
+    error_codes_names_dict = {}
+except Exception as e:
+    print(f"Ошибка загрузки error_codes_names.json: {e}")
+    error_codes_names_dict = {}
 
 # Reply Keyboard (появляется в поле ввода)
 main_reply_menu = ReplyKeyboardMarkup(
@@ -32,6 +90,7 @@ main_reply_menu = ReplyKeyboardMarkup(
         [KeyboardButton(text="🔧 Настройка")],
         [KeyboardButton(text="⚙️ Оптимизация")],
         [KeyboardButton(text="🧹 Очистка")],
+        [KeyboardButton(text="🛡️ Коды ошибок Windows")], # Новая кнопка
         [KeyboardButton(text="🛠️ Готовые скрипты")]
     ],
     resize_keyboard=True,
@@ -120,7 +179,58 @@ def normalize_text(text: str) -> str:
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer("Привет! Выберите действие:", reply_markup=main_reply_menu)
+    welcome_text = (
+        "👋 Привет! Я — <b>WinHelper</b>, твой помощник по настройке, оптимизации, очистке и диагностике Windows 11.\n\n"
+        "<b>Что я умею:</b>\n"
+        "🔧 <b>Настройка:</b> Отключение ненужных функций (Cortana, телеметрия, Bing в поиске и т.д.) для упрощения и повышения приватности.\n"
+        "⚙️ <b>Оптимизация:</b> Рекомендации по отключению служб, настройке визуальных эффектов, файлов подкачки и т.п. для улучшения производительности.\n"
+        "🧹 <b>Очистка:</b> Инструкции по удалению временных файлов, кэша обновлений, гибернации и другого мусора для освобождения места и ускорения системы.\n"
+        "🛠️ <b>Готовые скрипты:</b> Предоставление полезных скриптов (например, для очистки, активации).\n"
+        "🛡️ <b>Решение ошибок BSOD:</b> Поиск и отправка инструкций по устранению неполадок по коду ошибки (например, 0x00000001).\n\n"
+        "<b>Важно:</b>\n"
+        "⚠️ Я предлагаю <i>рекомендации и инструкции</i>. Применение их может <b>улучшить</b> работу ПК, но также <b>требует осторожности</b>.\n"
+        "⚠️ <b>Всегда создавайте точку восстановления системы перед внесением изменений.</b>\n"
+        "⚠️ Вы <b>используете</b> этого бота <b>на свой страх и риск</b>. Автор бота <b>не несёт ответственности</b> за возможные проблемы, повреждение данных или неисправность оборудования, возникшие в результате выполнения инструкций.\n"
+        "💡 <i>Бот — это помощник, а не панацея от всех бед. Всегда думайте критически и уточняйте информацию.</i>\n\n"
+        "Выберите действие с помощью кнопок ниже или задайте вопрос текстом."
+    )
+    await message.answer(welcome_text, reply_markup=main_reply_menu, parse_mode="HTML")
+
+# --- НОВОЕ: Обработчик кнопки "Коды ошибок Windows" ---
+@dp.message(lambda m: m.text == "🛡️ Коды ошибок Windows")
+async def send_error_codes_list(message: types.Message):
+    if not error_codes_names_dict:
+        await message.answer("❌ Файл с названиями ошибок не найден или пуст.")
+        return
+
+    # Преобразуем словарь в строку "код: название"
+    # Сортируем по ключу для более читаемого вывода
+    lines = [f"{code}: {name}" for code, name in sorted(error_codes_names_dict.items())]
+    content = "\n".join(lines)
+
+    # Отправляем как моноширинный блок
+    # Используем ``` для форматирования, но Telegram может обрезать длинные блоки
+    # Поэтому разбиваем на части, если строк очень много
+    max_length = 4096 # Максимальная длина сообщения в Telegram
+    if len(content) > max_length:
+        # Разбиваем на части по строкам
+        current_part = []
+        current_len = 0
+        for line in lines:
+            if current_len + len(line) + 1 > max_length:
+                # Отправляем текущую часть
+                await message.answer(f"```\n{'\\n'.join(current_part)}\n```", parse_mode="MarkdownV2")
+                current_part = [line]
+                current_len = len(line) + 1
+            else:
+                current_part.append(line)
+                current_len += len(line) + 1
+        # Отправляем оставшуюся часть
+        if current_part:
+            await message.answer(f"```\n{'\\n'.join(current_part)}\n```", parse_mode="MarkdownV2")
+    else:
+        await message.answer(f"```\n{content}\n```", parse_mode="MarkdownV2")
+
 
 # Обработчики нажатий на кнопки Reply Keyboard
 @dp.message(lambda m: m.text == "🔧 Настройка")
@@ -314,11 +424,33 @@ async def send_clean_script_from_scripts_menu(message: types.Message):
     except Exception as e:
         await message.answer("❌ Файл не найден. Пожалуйста, свяжитесь с администратором.")
 
-# Обработка текстовых сообщений (FAQ) с нормализацией и Damerau-Levenshtein
+# --- НОВОЕ: Обработчик сообщений с кодом ошибки ---
 @dp.message()
-async def handle_text_message(message: types.Message):
+async def handle_error_code_message(message: types.Message):
     user_text = message.text.lower()
-    # Нормализуем ввод пользователя
+
+    # Ищем код ошибки в формате 0x[0-9A-Fa-f]{8}
+    # Это может быть в любом месте сообщения
+    # Примеры: "0x00000069", "моя ошибка 0x00000069", "0x00000069 решение"
+    # Используем re.IGNORECASE для игнорирования регистра
+    match = re.search(r'0x[0-9A-Fa-f]{8}', user_text)
+
+    if match:
+        # --- ИСПРАВЛЕНО: приводим к нижнему регистру ---
+        error_code = match.group(0).lower() # Приводим к нижнему регистру, как в JSON
+        solution = error_solutions_dict.get(error_code)
+
+        if solution:
+            # Отправляем решение
+            await message.answer(f"**Решение для ошибки {error_code}:**\n\n```\n{solution}\n```", parse_mode="MarkdownV2")
+        else:
+            # --- ИСПРАВЛЕНО: экранирована точка ---
+            await message.answer(f"❌ Решение для ошибки `{error_code}` не найдено в базе данных\\.", parse_mode="MarkdownV2")
+        # ВАЖНО: return, чтобы не срабатывал следующий обработчик FAQ
+        return
+
+    # --- Остальная часть обработки текстовых сообщений (FAQ) с нормализацией и Damerau-Levenshtein ---
+    # Эта часть сработает, только если код ошибки не найден и это не команда/кнопка
     normalized_user_text = normalize_text(user_text)
 
     response = "Неизвестный запрос. Попробуйте использовать кнопки или задайте вопрос иначе."
@@ -350,6 +482,7 @@ async def handle_text_message(message: types.Message):
 
     await message.answer(response, reply_markup=keyboard)
 
+
 # Обработчик кнопки "Подробнее" (Inline Keyboard для FAQ)
 @dp.callback_query(lambda c: c.data in faq_details)
 async def show_faq_detail(callback_query: types.CallbackQuery):
@@ -363,6 +496,7 @@ async def show_faq_detail(callback_query: types.CallbackQuery):
 
 # Запуск бота
 async def main():
+    print("Запуск бота...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
