@@ -1,3 +1,4 @@
+import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import Command
@@ -6,7 +7,11 @@ import json
 import re
 from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance 
 
-API_TOKEN = '8595692863:AAH2QENhXN6Cjdkmt-D0sneu3h6eJ6bWD5o'
+API_TOKEN = os.getenv('BOT_TOKEN')
+
+if not API_TOKEN:
+    print("Ошибка: BOT_TOKEN не найден в переменных окружения.")
+    exit(1)
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
