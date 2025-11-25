@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from math import ceil
 from aiogram.filters import Command
 import asyncio
 import json
@@ -205,36 +206,83 @@ async def cmd_start(message: types.Message):
     await message.answer(welcome_text, reply_markup=main_reply_menu, parse_mode="HTML")
 
 
+ERROR_CODES_PER_PAGE = 40
+
+def get_page_content(page_number: int, codes_dict: dict):
+    """
+    Возвращает список строк для заданной страницы.
+    """
+    sorted_items = sorted(codes_dict.items())
+    start_index = page_number * ERROR_CODES_PER_PAGE
+    end_index = start_index + ERROR_CODES_PER_PAGE
+    page_items = sorted_items[start_index:end_index]
+
+    lines = [f"{name} - {code}" for code, name in page_items]
+    return lines
+
+def get_navigation_keyboard(current_page: int, total_pages: int):
+    """
+    Возвращает InlineKeyboardMarkup с кнопками навигации.
+    """
+    keyboard = []
+    row = []
+    if current_page > 0:
+        row.append(InlineKeyboardButton(text="◀️ Назад", callback_data=f"error_codes_page_{current_page - 1}"))
+    if current_page < total_pages - 1:
+        row.append(InlineKeyboardButton(text="Вперёд ▶️", callback_data=f"error_codes_page_{current_page + 1}"))
+    if row:
+        keyboard.append(row)
+
+    # Кнопка "Назад к меню"
+    keyboard.append([InlineKeyboardButton(text="🔙 Назад к меню", callback_data="back_to_main_menu")])
+
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
 @dp.message(lambda m: m.text == "🛡️ Коды ошибок Windows")
 async def send_error_codes_list(message: types.Message):
     if not error_codes_names_dict:
         await message.answer("❌ Файл с названиями ошибок не найден или пуст.")
         return
 
-  
-    lines = [f"{code}: {name}" for code, name in sorted(error_codes_names_dict.items())]
+    total_pages = ceil(len(error_codes_names_dict) / ERROR_CODES_PER_PAGE)
+    current_page = 0
+
+    lines = get_page_content(current_page, error_codes_names_dict)
     content = "\n".join(lines)
 
+    keyboard = get_navigation_keyboard(current_page, total_pages)
 
-    max_length = 4096 
-    if len(content) > max_length:
-        # Разбиваем на части по строкам
-        current_part = []
-        current_len = 0
-        for line in lines:
-            if current_len + len(line) + 1 > max_length:
-                # Отправляем текущую часть
-                await message.answer(f"```\n{separator.join(current_part)}\n```", parse_mode="MarkdownV2")
-                current_part = [line]
-                current_len = len(line) + 1
-            else:
-                current_part.append(line)
-                current_len += len(line) + 1
-        # Отправляем оставшуюся часть
-        if current_part:
-            await message.answer(f"```\n{separator.join(current_part)}\n```", parse_mode="MarkdownV2")
-    else:
-        await message.answer(f"```\n{content}\n```", parse_mode="MarkdownV2")
+    await message.answer(f"**Коды ошибок Windows (Страница {current_page + 1}/{total_pages}):**\n\n```\n{content}\n```", parse_mode="MarkdownV2", reply_markup=keyboard)
+
+# Обработчик навигации по страницам
+@dp.callback_query(lambda c: c.data.startswith("error_codes_page_"))
+async def navigate_error_codes_pages(callback_query: types.CallbackQuery):
+    page_number = int(callback_query.data.split('_')[-1])
+
+    total_pages = ceil(len(error_codes_names_dict) / ERROR_CODES_PER_PAGE)
+
+    # Проверим, что номер страницы в пределах
+    if page_number < 0 or page_number >= total_pages:
+        await callback_query.answer("Недопустимый номер страницы.", show_alert=True)
+        return
+
+    lines = get_page_content(page_number, error_codes_names_dict)
+    content = "\n".join(lines)
+
+    keyboard = get_navigation_keyboard(page_number, total_pages)
+
+    await callback_query.message.edit_text(
+        text=f"**Коды ошибок Windows (Страница {page_number + 1}/{total_pages}):**\n\n```\n{content}\n```",
+        parse_mode="MarkdownV2",
+        reply_markup=keyboard
+    )
+    await callback_query.answer()
+
+# Обработчик кнопки "Назад к меню" из списка ошибок
+@dp.callback_query(lambda c: c.data == "back_to_main_menu")
+async def back_to_main_menu(callback_query: types.CallbackQuery):
+    await callback_query.message.edit_text("Выберите действие:", reply_markup=main_reply_menu)
+    await callback_query.answer()
 
 
 # Обработчики нажатий на кнопки Reply Keyboard
