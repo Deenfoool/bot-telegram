@@ -1,4 +1,5 @@
 import os
+from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import Command
@@ -6,6 +7,8 @@ import asyncio
 import json
 import re
 from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance 
+
+load_dotenv()
 
 API_TOKEN = os.getenv('BOT_TOKEN')
 
