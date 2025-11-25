@@ -9,6 +9,7 @@ from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance
 API_TOKEN = '8595692863:AAH2QENhXN6Cjdkmt-D0sneu3h6eJ6bWD5o'
 
 bot = Bot(token=API_TOKEN)
+dp = Dispatcher()
 
 try:
     with open('faq.json', 'r', encoding='utf-8') as f:
@@ -169,8 +170,7 @@ def normalize_text(text: str) -> str:
     for cyr, lat in cyrillic_to_latin.items():
         text = text.replace(cyr, lat)
 
-    # Удаляем повторяющиеся символы (например, "активиииировать" -> "активировать")
-    # Это помогает при опечатках
+
     text = re.sub(r'(.)\1{2,}', r'\1', text)
 
     # Приводим к нижнему регистру
@@ -196,22 +196,19 @@ async def cmd_start(message: types.Message):
     )
     await message.answer(welcome_text, reply_markup=main_reply_menu, parse_mode="HTML")
 
-# --- НОВОЕ: Обработчик кнопки "Коды ошибок Windows" ---
+
 @dp.message(lambda m: m.text == "🛡️ Коды ошибок Windows")
 async def send_error_codes_list(message: types.Message):
     if not error_codes_names_dict:
         await message.answer("❌ Файл с названиями ошибок не найден или пуст.")
         return
 
-    # Преобразуем словарь в строку "код: название"
-    # Сортируем по ключу для более читаемого вывода
+  
     lines = [f"{code}: {name}" for code, name in sorted(error_codes_names_dict.items())]
     content = "\n".join(lines)
 
-    # Отправляем как моноширинный блок
-    # Используем ``` для форматирования, но Telegram может обрезать длинные блоки
-    # Поэтому разбиваем на части, если строк очень много
-    max_length = 4096 # Максимальная длина сообщения в Telegram
+
+    max_length = 4096 
     if len(content) > max_length:
         # Разбиваем на части по строкам
         current_part = []
@@ -379,7 +376,7 @@ async def send_clear_guide_general_cache(message: types.Message):
 # Обработчик кнопки "Скачать скрипт очистки диска" из меню "Очистка"
 @dp.message(lambda m: m.text == "Скачать скрипт очистки диска")
 async def send_clean_script_from_clean_menu(message: types.Message):
-    file_path = "scripts/Clean_disk_C.bat.txt"  # Путь к файлу в папке scripts
+    file_path = "scripts/Clean_disk_C.bat.txt" 
     try:
         await bot.send_document(
             chat_id=message.chat.id,
@@ -402,7 +399,7 @@ async def send_delete_pass_info(message: types.Message):
 
 @dp.message(lambda m: m.text == "Обход блока для YT и DS")
 async def send_zapret_file(message: types.Message):
-    file_path = "scripts/zapret-discord-youtube-1.7.2b.zip"  # Путь к файлу в папке scripts
+    file_path = "scripts/zapret-discord-youtube-1.7.2b.zip" 
     try:
         await bot.send_document(
             chat_id=message.chat.id,
@@ -414,7 +411,7 @@ async def send_zapret_file(message: types.Message):
 
 @dp.message(lambda m: m.text == "Скрипт очистки диска")
 async def send_clean_script_from_scripts_menu(message: types.Message):
-    file_path = "scripts/Clean_disk_C.bat.txt"  # Путь к файлу в папке scripts
+    file_path = "scripts/Clean_disk_C.bat.txt" 
     try:
         await bot.send_document(
             chat_id=message.chat.id,
@@ -429,50 +426,39 @@ async def send_clean_script_from_scripts_menu(message: types.Message):
 async def handle_error_code_message(message: types.Message):
     user_text = message.text.lower()
 
-    # Ищем код ошибки в формате 0x[0-9A-Fa-f]{8}
-    # Это может быть в любом месте сообщения
-    # Примеры: "0x00000069", "моя ошибка 0x00000069", "0x00000069 решение"
-    # Используем re.IGNORECASE для игнорирования регистра
     match = re.search(r'0x[0-9A-Fa-f]{8}', user_text)
 
     if match:
-        # --- ИСПРАВЛЕНО: приводим к нижнему регистру ---
-        error_code = match.group(0).lower() # Приводим к нижнему регистру, как в JSON
+       
+        error_code = match.group(0).lower()
         solution = error_solutions_dict.get(error_code)
 
         if solution:
-            # Отправляем решение
-            await message.answer(f"**Решение для ошибки {error_code}:**\n\n```\n{solution}\n```", parse_mode="MarkdownV2")
-        else:
-            # --- ИСПРАВЛЕНО: экранирована точка ---
+              
             await message.answer(f"❌ Решение для ошибки `{error_code}` не найдено в базе данных\\.", parse_mode="MarkdownV2")
-        # ВАЖНО: return, чтобы не срабатывал следующий обработчик FAQ
+      
         return
 
-    # --- Остальная часть обработки текстовых сообщений (FAQ) с нормализацией и Damerau-Levenshtein ---
-    # Эта часть сработает, только если код ошибки не найден и это не команда/кнопка
+  
     normalized_user_text = normalize_text(user_text)
 
     response = "Неизвестный запрос. Попробуйте использовать кнопки или задайте вопрос иначе."
     keyboard = None
 
     best_match = None
-    best_similarity = 0  # Будем искать НАИБОЛЬШУЮ схожесть (1.0 - идентично, 0.0 - совсем разные)
+    best_similarity = 0  
 
-    # Проходим по всем ключам из словаря FAQ
+    
     for key in faq_dict:
-        # Нормализуем ключ из словаря
+        
         normalized_key = normalize_text(key)
-        # Сравниваем нормализованный ввод с нормализованным ключом
-        # normalized_damerau_levenshtein_distance возвращает 1.0 (идентичны) - 0.0 (совсем разные)
+        
         similarity = normalized_damerau_levenshtein_distance(normalized_user_text, normalized_key)
 
         if similarity > best_similarity:
             best_similarity = similarity
             best_match = key
 
-    # Если лучшая схожесть достаточно высокая (например, > 0.7) - это порог настраивается
-    # 0.7 означает, что 70% символов (с учётом транспозиций) совпадают
     if best_similarity > 0.7:
         matched_entry = faq_dict[best_match]
         response = matched_entry["message"]
@@ -492,7 +478,7 @@ async def show_faq_detail(callback_query: types.CallbackQuery):
         text=text,
         parse_mode="MarkdownV2"
     )
-    await callback_query.answer() # Закрывает уведомление о нажатии
+    await callback_query.answer()
 
 # Запуск бота
 async def main():
