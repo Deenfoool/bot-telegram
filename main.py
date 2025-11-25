@@ -505,17 +505,19 @@ async def handle_error_code_message(message: types.Message):
     match = re.search(r'0x[0-9A-Fa-f]{8}', user_text)
 
     if match:
-       
-        error_code = match.group(0).lower()
+        error_code = match.group(0).lower() 
         solution = error_solutions_dict.get(error_code)
 
         if solution:
-              
+
+            await message.answer(f"**Решение для ошибки {error_code}:**\n\n```\n{solution}\n```", parse_mode="MarkdownV2")
+        else:
+
             await message.answer(f"❌ Решение для ошибки `{error_code}` не найдено в базе данных\\.", parse_mode="MarkdownV2")
-      
+
         return
 
-  
+
     normalized_user_text = normalize_text(user_text)
 
     response = "Неизвестный запрос. Попробуйте использовать кнопки или задайте вопрос иначе."
@@ -524,11 +526,10 @@ async def handle_error_code_message(message: types.Message):
     best_match = None
     best_similarity = 0  
 
-    
     for key in faq_dict:
-        
+
         normalized_key = normalize_text(key)
-        
+
         similarity = normalized_damerau_levenshtein_distance(normalized_user_text, normalized_key)
 
         if similarity > best_similarity:
