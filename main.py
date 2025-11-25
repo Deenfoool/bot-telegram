@@ -208,6 +208,16 @@ async def cmd_start(message: types.Message):
 
 ERROR_CODES_PER_PAGE = 40
 
+def escape_md_v2(text: str) -> str:
+    """
+    Экранирует специальные символы MarkdownV2.
+    """
+    # Эти символы нужно экранировать, если они не используются в синтаксисе
+    escape_chars = r'_*[]()~`>#+-=|{}.!'
+    for char in escape_chars:
+        text = text.replace(char, '\\' + char)
+    return text
+
 def get_page_content(page_number: int, codes_dict: dict):
     """
     Возвращает список строк для заданной страницы.
@@ -217,9 +227,10 @@ def get_page_content(page_number: int, codes_dict: dict):
     end_index = start_index + ERROR_CODES_PER_PAGE
     page_items = sorted_items[start_index:end_index]
 
-    lines = [f"{name} - {code}" for code, name in page_items]
+    # --- ИСПРАВЛЕНО: экранируем имя ошибки ---
+    lines = [f"{escape_md_v2(name)} - {code}" for code, name in page_items]
     return lines
-
+    
 def get_navigation_keyboard(current_page: int, total_pages: int):
     """
     Возвращает InlineKeyboardMarkup с кнопками навигации.
@@ -252,7 +263,9 @@ async def send_error_codes_list(message: types.Message):
 
     keyboard = get_navigation_keyboard(current_page, total_pages)
 
-    await message.answer(f"**Коды ошибок Windows (Страница {current_page + 1}/{total_pages}):**\n\n```\n{content}\n```", parse_mode="MarkdownV2", reply_markup=keyboard)
+    # --- ИСПРАВЛЕНО: экранируем заголовок ---
+    escaped_title = escape_md_v2(f"Коды ошибок Windows (Страница {current_page + 1}/{total_pages}):")
+    await message.answer(f"**{escaped_title}**\n\n```\n{content}\n```", parse_mode="MarkdownV2", reply_markup=keyboard)
 
 # Обработчик навигации по страницам
 @dp.callback_query(lambda c: c.data.startswith("error_codes_page_"))
@@ -271,8 +284,10 @@ async def navigate_error_codes_pages(callback_query: types.CallbackQuery):
 
     keyboard = get_navigation_keyboard(page_number, total_pages)
 
+    # --- ИСПРАВЛЕНО: экранируем заголовок ---
+    escaped_title = escape_md_v2(f"Коды ошибок Windows (Страница {page_number + 1}/{total_pages}):")
     await callback_query.message.edit_text(
-        text=f"**Коды ошибок Windows (Страница {page_number + 1}/{total_pages}):**\n\n```\n{content}\n```",
+        text=f"**{escaped_title}**\n\n```\n{content}\n```",
         parse_mode="MarkdownV2",
         reply_markup=keyboard
     )
