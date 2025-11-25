@@ -1,2 +1,3 @@
 pyxDamerauLevenshtein
 aiogram
+dotenv
