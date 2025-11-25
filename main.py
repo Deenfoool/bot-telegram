@@ -216,7 +216,7 @@ async def send_error_codes_list(message: types.Message):
         for line in lines:
             if current_len + len(line) + 1 > max_length:
                 # Отправляем текущую часть
-                await message.answer(f"```\n{'\\n'.join(current_part)}\n```", parse_mode="MarkdownV2")
+                await message.answer(f"```\n{separator.join(current_part)}\n```", parse_mode="MarkdownV2")
                 current_part = [line]
                 current_len = len(line) + 1
             else:
@@ -224,7 +224,7 @@ async def send_error_codes_list(message: types.Message):
                 current_len += len(line) + 1
         # Отправляем оставшуюся часть
         if current_part:
-            await message.answer(f"```\n{'\\n'.join(current_part)}\n```", parse_mode="MarkdownV2")
+            await message.answer(f"```\n{separator.join(current_part)}\n```", parse_mode="MarkdownV2")
     else:
         await message.answer(f"```\n{content}\n```", parse_mode="MarkdownV2")
 
