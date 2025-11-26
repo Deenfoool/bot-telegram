@@ -384,18 +384,23 @@ async def process_signal_sequence(message: types.Message, state: FSMContext):
     for key in bios_codes:
         normalized_key = normalize_text(key)
         similarity = normalized_damerau_levenshtein_distance(normalized_user_input, normalized_key)
+
         if similarity > best_similarity:
             best_similarity = similarity
             best_match = key
 
     if best_similarity > 0.7:
-        solution = name[codes]
-        response = f"<b>Решение для {bios_name} ({description}):</b>\n\n<code>\n{solution}\n</code>"
+        matched_entry = bios_codes[best_match]
+        description = matched_entry["description"]
+        solution = matched_entry["solution"]
+        response = f"<b>Решение для {bios_name} ({best_match}):</b>\n\n"
+                  f"<b>Описание:</b> <code>{description}</code>\n\n"
+                  f"<b>Решение:</b>\n\n<code>{solution}</code>\n"
     else:
         response = f"❌ Решение для последовательности <code>{user_input}</code> в BIOS <b>{bios_name}</b> не найдено в базе данных."
 
     await message.answer(response, parse_mode="HTML")
-    await state.clear()
+    await state.clear() 
 
 @dp.message(lambda m: m.text == "🔧 Настройка")
 async def show_setup_menu(message: types.Message):
