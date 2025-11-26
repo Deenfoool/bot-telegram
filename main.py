@@ -390,11 +390,11 @@ async def process_signal_sequence(message: types.Message, state: FSMContext):
 
     if best_similarity > 0.7:
         solution = bios_codes[best_match]
-        response = f"**Решение для {bios_name} ({best_match}):**\n\n```\n{solution}\n```"
+        response = f"<b>Решение для {bios_name} ({best_match}):</b>\n\n<code>\n{solution}\n</code>"
     else:
-        response = f"❌ Решение для последовательности `{user_input}` в BIOS **{bios_name}** не найдено в базе данных\\."
+        response = f"❌ Решение для последовательности <code>{user_input}</code> в BIOS <b>{bios_name}</b> не найдено в базе данных."
 
-    await message.answer(response, parse_mode="MarkdownV2")
+    await message.answer(response, parse_mode="HTML")
     await state.clear()
 
 @dp.message(lambda m: m.text == "🔧 Настройка")
