@@ -393,9 +393,9 @@ async def process_signal_sequence(message: types.Message, state: FSMContext):
         matched_entry = bios_codes[best_match]
         description = matched_entry["description"]
         solution = matched_entry["solution"]
-        response = (f"<b>Решение для {bios_name} ({best_match}):</b>\n\n"
-                  f"<b>Описание:</b> <code>{description}</code>\n\n"
-                  f"<b>Решение:</b>\n\n<code>{solution}</code>\n")
+        response = (f"<b>Решение для {bios_name}:</b>\n\n"
+                  f"<b>Описание:</b><code>{description}</code>\n\n"
+                  f"<b>Решение:</b>\n<code>{solution}</code>\n")
     else:
         response = f"❌ Решение для последовательности <code>{user_input}</code> в BIOS <b>{bios_name}</b> не найдено в базе данных."
 
