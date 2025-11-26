@@ -311,7 +311,7 @@ async def ask_bios_type(message: types.Message, state: FSMContext):
 
     keyboard = create_bios_choice_keyboard()
     await message.answer(
-        "🔍 **Шаг 1 из 2:** Пожалуйста, укажите тип BIOS или узнайте, как его определить.",
+        "🔍 **Шаг 1 из 2:** Пожалуйста, укажите тип BIOS или узнайте, как его определить\\.",
         reply_markup=keyboard,
         parse_mode="MarkdownV2"
     )
