@@ -143,6 +143,25 @@ def create_bios_choice_keyboard():
         ]
     ])
 
+# --- НОВОЕ: Нормализация текста ---
+def normalize_text(text: str) -> str:
+    # Замена кириллических букв на латинские (например, 'с' -> 'c', 'а' -> 'a')
+    cyrillic_to_latin = {
+        'а': 'a', 'е': 'e', 'ё': 'e', 'и': 'i', 'о': 'o', 'у': 'u', 'ы': 'y', 'э': 'e',
+        'А': 'A', 'Е': 'E', 'Ё': 'E', 'И': 'I', 'О': 'O', 'У': 'U', 'Ы': 'Y', 'Э': 'E',
+        'с': 'c', 'к': 'k', 'р': 'p', 'х': 'x', 'у': 'y', 'в': 'v', 'т': 't', 'н': 'n',
+        'А': 'A', 'С': 'C', 'К': 'K', 'Р': 'P', 'Х': 'X', 'У': 'Y', 'В': 'V', 'Т': 'T', 'Н': 'N'
+    }
+    for cyr, lat in cyrillic_to_latin.items():
+        text = text.replace(cyr, lat)
+
+    # Удаляем повторяющиеся символы (например, "активиииировать" -> "активировать")
+    # Это помогает при опечатках
+    text = re.sub(r'(.)\1{2,}', r'\1', text)
+
+    # Приводим к нижнему регистру
+    return text.lower()
+
 # --- НОВОЕ: Обработчик нажатия на кнопку "🔊 Звуковые сигналы BIOS" ---
 @dp.message(lambda m: m.text == "🔊 Звуковые сигналы BIOS")
 async def ask_bios_type(message: types.Message, state: FSMContext):
@@ -170,14 +189,20 @@ async def process_bios_choice(callback_query: types.CallbackQuery, state: FSMCon
             "**Вариант 2:** Если Windows на компьютере загружается — нажмите сочетание клавиш **Win+R** (чтобы появилось окно \"Выполнить\"), и введите `msinfo32` (см. \"1\" на скрине ниже).\n\n"
             "**Вариант 3:** Зайти в настройки BIOS — в верхней части окна (обычно) всегда указывается версия."
         )
-        await callback_query.message.edit_text(
+        # await callback_query.message.edit_text( # Не редактируем, а отправляем новое сообщение
+        #     text=info_text,
+        #     parse_mode="MarkdownV2"
+        # )
+        await bot.send_message(
+            chat_id=callback_query.message.chat.id,
             text=info_text,
             parse_mode="MarkdownV2"
         )
         # После показа информации, снова спрашиваем BIOS
         keyboard = create_bios_choice_keyboard()
-        await callback_query.message.answer(
-            "🔍 **Шаг 1 из 2 (повтор):** Пожалуйста, **выберите тип BIOS**.",
+        await bot.send_message(
+            chat_id=callback_query.message.chat.id,
+            text="🔍 **Шаг 1 из 2 (повтор):** Пожалуйста, **выберите тип BIOS**.",
             reply_markup=keyboard,
             parse_mode="MarkdownV2"
         )
@@ -186,11 +211,22 @@ async def process_bios_choice(callback_query: types.CallbackQuery, state: FSMCon
 
     # Если выбран тип BIOS
     bios_key = callback_query.data.replace("bios_", "") # Например, "ami"
-    bios_name = beep_codes_data.get(bios_key, {}).get("name", "Неизвестный BIOS")
+    bios_info = beep_codes_data.get(bios_key)
+
+    if not bios_info:
+         await bot.send_message(
+            chat_id=callback_query.message.chat.id,
+            text="❌ Произошла ошибка: тип BIOS не найден. Попробуйте снова.",
+            parse_mode="MarkdownV2"
+        )
+        await state.clear()
+        return
+
+    bios_name = bios_info.get("name", "Неизвестный BIOS")
 
     await callback_query.message.edit_text(
         text=f"✅ Выбран: **{bios_name}**\n\n"
-             f"📋 **Шаг 2 из 2:** Теперь **введите последовательность сигналов** (например, `1 короткий 2 длинных`).",
+             f"📋 **Шаг 2 из 2:** Теперь **введите последовательность сигналов** (например, `1 короткий 2 длинных` или `1-2-1`).",
         parse_mode="MarkdownV2"
     )
     await state.update_data(selected_bios=bios_key)
@@ -199,7 +235,9 @@ async def process_bios_choice(callback_query: types.CallbackQuery, state: FSMCon
 # --- НОВОЕ: Обработчик ввода последовательности сигнала ---
 @dp.message(BeepCodeState.waiting_for_sequence)
 async def process_signal_sequence(message: types.Message, state: FSMContext):
-    user_input = message.text.lower()
+    user_input_raw = message.text
+    user_input_normalized = normalize_text(user_input_raw) # Нормализуем ввод
+
     data = await state.get_data()
     selected_bios_key = data.get("selected_bios")
 
@@ -208,25 +246,34 @@ async def process_signal_sequence(message: types.Message, state: FSMContext):
         await state.clear()
         return
 
-    bios_codes = beep_codes_data[selected_bios_key]["codes"]
-    bios_name = beep_codes_data[selected_bios_key]["name"]
+    bios_info = beep_codes_data[selected_bios_key]
+    bios_codes = bios_info.get("codes", {})
+    bios_name = bios_info.get("name", "Неизвестный BIOS")
 
-    # Нормализуем ввод пользователя для поиска (удаляем лишние пробелы, приводим к нижнему)
-    # Для простоты ищем точное совпадение по ключу
-    # В будущем можно добавить fuzzy search, как в FAQ
     found_solution = None
-    for key, value in bios_codes.items():
-        if user_input == key.lower(): # Точное совпадение
-            found_solution = value
+    matched_key = None
+    # Проходим по всем ключам (последовательностям) в кодах для выбранного BIOS
+    for key in bios_codes:
+        # Нормализуем ключ из JSON
+        normalized_key = normalize_text(key)
+        # Сравниваем нормализованный ввод с нормализованным ключом
+        if user_input_normalized == normalized_key:
+            found_solution = bios_codes[key]
+            matched_key = key
             break
 
     if found_solution:
-        response = f"**Решение для {bios_name}:**\n\n" \
-                   f"**Код ошибки:** `{user_input}`\n" \
-                   f"**Описание:** {found_solution['description']}\n\n" \
-                   f"**Решение:** {found_solution['solution']}"
+        # Извлекаем описание и решение из найденной записи
+        description = found_solution.get("description", "Описание отсутствует.")
+        solution = found_solution.get("solution", "Решение не найдено.")
+        response = (
+            f"**Решение для {bios_name}:**\n\n"
+            f"**Код ошибки:** `{matched_key}`\n"  # Показываем оригинальный ключ
+            f"**Описание:** {description}\n\n"
+            f"**Решение:**\n```\n{solution}\n```"
+        )
     else:
-        response = f"❌ Решение для последовательности `{user_input}` в BIOS **{bios_name}** не найдено в базе данных\\."
+        response = f"❌ Решение для последовательности `{user_input_raw}` в BIOS **{bios_name}** не найдено в базе данных\\."
 
     await message.answer(response, parse_mode="MarkdownV2")
     await state.clear() # Сбрасываем состояние FSM
