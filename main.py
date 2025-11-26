@@ -389,7 +389,7 @@ async def process_signal_sequence(message: types.Message, state: FSMContext):
             best_match = key
 
     if best_similarity > 0.7:
-        solution = name[description]
+        solution = name[codes]
         response = f"<b>Решение для {name} ({description}):</b>\n\n<code>\n{solution}\n</code>"
     else:
         response = f"❌ Решение для последовательности <code>{user_input}</code> в BIOS <b>{name}</b> не найдено в базе данных."
