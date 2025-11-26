@@ -311,9 +311,9 @@ async def ask_bios_type(message: types.Message, state: FSMContext):
 
     keyboard = create_bios_choice_keyboard()
     await message.answer(
-        "🔍 **Шаг 1 из 2:** Пожалуйста, укажите тип BIOS или узнайте, как его определить\\.",
+        "🔍 <b>Шаг 1 из 2</b>: Пожалуйста, укажите тип BIOS или узнайте, как его определить.",
         reply_markup=keyboard,
-        parse_mode="MarkdownV2"
+        parse_mode="HTML"
     )
     await state.set_state(BeepCodeState.waiting_for_bios_type)
 
@@ -323,21 +323,21 @@ async def process_bios_choice(callback_query: types.CallbackQuery, state: FSMCon
 
     if callback_query.data == "how_to_check_bios":
         info_text = (
-            "ℹ️ \\*\\*Как узнать, какой у вас BIOS\\?\\*\\*\n\n"
-            "\\*\\*Вариант 1:\\*\\* Посмотреть документацию к вашему ПК \\(материнской плате\\)\\.\n\n"
-            "\\*\\*Вариант 2:\\*\\* Если Windows на компьютере загружается — нажмите сочетание клавиш \\*\\*Win\\+R\\*\\* \\(чтобы появилось окно \"Выполнить\"\\), и введите `msinfo32` \\(см\\. \"1\" на скрине ниже\\)\\.\n\n"
-            "\\*\\*Вариант 3:\\*\\* Зайти в настройки BIOS — в верхней части окна \\(обычно\\) всегда указывается версия\\."
+            "ℹ️ <b>Как узнать, какой у вас BIOS?</b>\n\n"
+            "<b>Вариант 1:</b> Посмотреть документацию к вашему ПК (материнской плате).\n\n"
+            "<b>Вариант 2:</b> Если Windows на компьютере загружается — нажмите сочетание клавиш <code>Win+R</code> (чтобы появилось окно <b>Выполнить</b>), и введите <code>msinfo32</code> (см. 1 на скрине ниже).\n\n"
+            "<b>Вариант 3:</b> Зайти в настройки BIOS — в верхней части окна (обычно) всегда указывается версия."
         )
         await callback_query.message.edit_text(
             text=info_text,
-            parse_mode="MarkdownV2"
+            parse_mode="HTML"
         )
         keyboard = create_bios_choice_keyboard()
-        escaped_header = "🔍 \\*\\*Шаг 1 из 2 \\(повтор\\):\\*\\* Пожалуйста, \\*\\*выберите тип BIOS\\*\\*\\."
+        escaped_header = "🔍 <b>Шаг 1 из 2 (повтор)</b>: Пожалуйста, выберите тип <b>BIOS</b>."
         await callback_query.message.answer(
             escaped_header,
             reply_markup=keyboard,
-            parse_mode="MarkdownV2"
+            parse_mode="HTML"
         )
         return
 
@@ -347,8 +347,8 @@ async def process_bios_choice(callback_query: types.CallbackQuery, state: FSMCon
     if not bios_info:
         await bot.send_message(
             chat_id=callback_query.message.chat.id,
-            text="❌ Произошла ошибка: тип BIOS не найден\\. Попробуйте снова\\.",
-            parse_mode="MarkdownV2"
+            text="❌ <b>Произошла ошибка:</b> тип <b>BIOS</b> не найден. Попробуйте снова.",
+            parse_mode="HTML"
         )
         await state.clear()
         return
@@ -356,9 +356,9 @@ async def process_bios_choice(callback_query: types.CallbackQuery, state: FSMCon
     bios_name = bios_info.get("name", "Неизвестный BIOS")
 
     await callback_query.message.edit_text(
-        text=f"✅ Выбран: \\*\\*{escape_md_v2(bios_name)}\\*\\*\n\n"
-             f"📋 \\*\\*Шаг 2 из 2:\\*\\* Теперь \\*\\*опишите последовательность звуковых сигналов\\*\\* \\(например, `1 короткий 2 длинных`, `1\\-2\\-1`\\)\\.",
-        parse_mode="MarkdownV2"
+        text=f"✅ Выбран: <b>{escape_md_v2(bios_name)}</b>\n\n"
+             f"📋 <b>Шаг 2 из 2:</b> Теперь опишите последовательность звуковых сигналов (например: <code>1 короткий 2 длинных</code>).",
+        parse_mode="HTML"
     )
     await state.update_data(selected_bios=bios_key)
     await state.set_state(BeepCodeState.waiting_for_sequence)
