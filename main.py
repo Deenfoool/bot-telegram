@@ -1,36 +1,17 @@
 import os
 from dotenv import load_dotenv
-import openai
+from aiogram import Bot, Dispatcher, types
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from math import ceil
+from aiogram.filters import Command
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
+import asyncio
+import json
+import re
+from pyxdameraulevenshtein import normalized_damerau_levenshtein_distance
 
 load_dotenv()
-
-DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')
-DEEPSEEK_BASE_URL = os.getenv('DEEPSEEK_BASE_URL', 'https://api.deepseek.com')
-
-if not DEEPSEEK_API_KEY:
-    print("Ошибка: DEEPSEEK_API_KEY не найден в переменных окружения.")
-    exit(1)
-
-client = openai.OpenAI(
-    api_key=DEEPSEEK_API_KEY,
-    base_url=DEEPSEEK_BASE_URL,
-)
-
-async def get_ai_response(user_message: str) -> str:
-    try:
-        response = client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[
-                {"role": "system", "content": "Ты полезный ассистент, помогающий с вопросами о Windows 11, его настройке, оптимизации, очистке, диагностике и решении ошибок. Если вопрос касается Windows, отвечай максимально точно и полезно. Если вопрос не по теме Windows, вежливо сообщи, что ты специализируешься на Windows."},
-                {"role": "user", "content": user_message}
-            ],
-            max_tokens=500,
-            temperature=0.7,
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        print(f"Ошибка при запросе к DeepSeek API: {e}")
-        return "❌ Извините, возникла ошибка при обработке вашего запроса к ИИ. Попробуйте задать вопрос позже или воспользуйтесь кнопками меню."
 
 API_TOKEN = os.getenv('BOT_TOKEN')
 
@@ -345,7 +326,7 @@ async def process_bios_choice(callback_query: types.CallbackQuery, state: FSMCon
             "ℹ️ <b>Как узнать, какой у вас BIOS?</b>\n\n"
             "<b>Вариант 1:</b> Посмотреть документацию к вашему ПК (материнской плате).\n\n"
             "<b>Вариант 2:</b> Если Windows на компьютере загружается — нажмите сочетание клавиш <code>Win+R</code> (чтобы появилось окно <b>Выполнить</b>), и введите <code>msinfo32</code> (см. 1 на скрине ниже).\n\n"
-            "<b>Вариант 3:</b> Зайти в настройки BIOS — в верхней части окра (обычно) всегда указывается версия."
+            "<b>Вариант 3:</b> Зайти в настройки BIOS — в верхней части окна (обычно) всегда указывается версия."
         )
         await callback_query.message.edit_text(
             text=info_text,
@@ -360,7 +341,7 @@ async def process_bios_choice(callback_query: types.CallbackQuery, state: FSMCon
         )
         return
 
-    bios_key = callback_query.data.replace("bios_", "")
+    bios_key = callback_query.data.replace("bios_", "") 
     bios_info = beep_codes_dict.get(bios_key)
 
     if not bios_info:
@@ -419,7 +400,7 @@ async def process_signal_sequence(message: types.Message, state: FSMContext):
         response = f"❌ Решение для последовательности <code>{user_input}</code> в BIOS <b>{bios_name}</b> не найдено в базе данных."
 
     await message.answer(response, parse_mode="HTML")
-    await state.clear()
+    await state.clear() 
 
 @dp.message(lambda m: m.text == "🔧 Настройка")
 async def show_setup_menu(message: types.Message):
@@ -575,7 +556,7 @@ async def send_clean_script_from_clean_menu(message: types.Message):
 
 @dp.message(lambda m: m.text == "Активация Windows")
 async def send_mas_info(message: types.Message):
-    info_text = "```\nДля запуска скрипта активации Windows:\n\n1. Нажмите сочетание клавиш Win + X на клавиатуре.\n2. В появившемся меню выберите 'Windows PowerShell (Администратор)' или 'Терминал (Администратор)'.\n3. В открывшемся окне вставьте следующую команду и нажмите Enter:\n\nirm https://get.activated.win     | iex\n\n⚠️ Важно: выполнение этой команды запустит скрипт активации.\nУбедитесь, что вы понимаете, что делаете, и доверяете источнику.\n```"
+    info_text = "```\nДля запуска скрипта активации Windows:\n\n1. Нажмите сочетание клавиш Win + X на клавиатуре.\n2. В появившемся меню выберите 'Windows PowerShell (Администратор)' или 'Терминал (Администратор)'.\n3. В открывшемся окне вставьте следующую команду и нажмите Enter:\n\nirm https://get.activated.win   | iex\n\n⚠️ Важно: выполнение этой команды запустит скрипт активации.\nУбедитесь, что вы понимаете, что делаете, и доверяете источнику.\n```"
     await message.answer(info_text, parse_mode="MarkdownV2")
 
 @dp.message(lambda m: m.text == "Удаление пароля")
@@ -622,32 +603,27 @@ async def handle_error_code_message(message: types.Message):
             await message.answer(f"❌ Решение для ошибки `{error_code}` не найдено в базе данных\\.", parse_mode="MarkdownV2")
         return
 
-    ai_response = await get_ai_response(message.text)
-    if ai_response and ("не по теме" in ai_response.lower() or "помочь" in ai_response.lower() and len(ai_response) < 100):
-        normalized_user_text = normalize_text(user_text)
-        response = "Неизвестный запрос. Попробуйте использовать кнопки или задайте вопрос иначе."
-        keyboard = None
+    normalized_user_text = normalize_text(user_text)
+    response = "Неизвестный запрос. Попробуйте использовать кнопки или задайте вопрос иначе."
+    keyboard = None
 
-        best_match = None
-        best_similarity = 0
+    best_match = None
+    best_similarity = 0
 
-        for key in faq_dict:
-            normalized_key = normalize_text(key)
-            similarity = normalized_damerau_levenshtein_distance(normalized_user_text, normalized_key)
-            if similarity > best_similarity:
-                best_similarity = similarity
-                best_match = key
+    for key in faq_dict:
+        normalized_key = normalize_text(key)
+        similarity = normalized_damerau_levenshtein_distance(normalized_user_text, normalized_key)
+        if similarity > best_similarity:
+            best_similarity = similarity
+            best_match = key
 
-        if best_similarity > 0.7:
-            matched_entry = faq_dict[best_match]
-            response = matched_entry["message"]
-            callback_data = matched_entry["callback_data"]
-            keyboard = create_faq_keyboard(callback_data)
-        if not response or response.startswith("Неизвестный запрос"):
-             response = ai_response if ai_response else response
-        await message.answer(response, reply_markup=keyboard)
-    else:
-        await message.answer(ai_response)
+    if best_similarity > 0.7:
+        matched_entry = faq_dict[best_match]
+        response = matched_entry["message"]
+        callback_data = matched_entry["callback_data"]
+        keyboard = create_faq_keyboard(callback_data)
+
+    await message.answer(response, reply_markup=keyboard)
 
 @dp.callback_query(lambda c: c.data in faq_details)
 async def show_faq_detail(callback_query: types.CallbackQuery):
